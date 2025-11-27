@@ -1,0 +1,45 @@
+version: "3.8"
+
+x-common-config: &common-config
+  restart: unless-stopped
+  networks:
+    - TrB_Network
+  deploy:
+    resources:
+      limits:
+        cpus: '0.25'
+        memory: 128M
+    restart_policy:
+      condition: on-failure
+
+services:
+  moex:
+    <<: *common-config
+    build:
+      context: .
+      dockerfile: ./build/docker/service/Dockerfile
+      args:
+        CMD_PATH: ./internal/services/moex_/cmd/main.go
+    environment:
+      - NATS_URL=nats://nats:4222
+      - PORT=9091
+    command: ["/app/service", "--config=/app/config.yaml"]
+
+  envoy:
+    <<: *common-config
+    build:
+      context: .
+      dockerfile: ./build/docker/envoy/Dockerfile
+      args:
+        ENVOY_CONFIG: ./internal/services/envoy/configs/envoy.yaml
+    hostname: server_cluster
+    ports:
+      - '8081:8081'
+      - '9901:9901'
+
+networks:
+  TrB_Network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.10.0/24
