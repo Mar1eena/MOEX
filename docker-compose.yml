@@ -19,7 +19,7 @@ services:
       context: .
       dockerfile: ./build/docker/service/Dockerfile
       args:
-        CMD_PATH: ./internal/services/moex_/cmd/main.go
+        CMD_PATH: ./internal/services/moexdealing/cmd/main.go
     environment:
       - NATS_URL=nats://nats:4222
       - PORT=9091

@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/Mar1eena/Test_gRPC/internal/pkg/zlog"
-	"github.com/Mar1eena/Test_gRPC/internal/services/moex_/server"
+	"github.com/Mar1eena/Test_gRPC/internal/services/moexdealing/server"
 	"google.golang.org/grpc"
 )
 

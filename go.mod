@@ -3,7 +3,7 @@ module github.com/Mar1eena/Test_gRPC
 go 1.24.1
 
 require (
-	github.com/Mar1eena/trb_proto v0.5.6
+	github.com/Mar1eena/trb_proto v0.6.2
 	github.com/rs/zerolog v1.34.0
 	google.golang.org/grpc v1.74.2
 )
