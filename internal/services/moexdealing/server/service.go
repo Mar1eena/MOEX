@@ -7,9 +7,10 @@ import (
 )
 
 func (s *MOEXServiceServer) Request(ctx context.Context, req *moex_contract_v1.Req) (*moex_contract_v1.Resp, error) {
-	resp, err := Request(req)
-	if err != nil {
-		return nil, err
-	}
-	return &moex_contract_v1.Resp{Reply: resp}, nil
+	return &moex_contract_v1.Resp{Reply: ""}, nil
+}
+
+func (s *MOEXServiceServer) Dealing(ctx context.Context, req *moex_contract_v1.DealingRequest) (*moex_contract_v1.DealingResponse, error) {
+	resp, err := Dealing(req)
+	return &moex_contract_v1.DealingResponse{Reply: resp}, err
 }

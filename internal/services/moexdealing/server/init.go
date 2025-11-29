@@ -8,12 +8,12 @@ import (
 
 // Init service
 type MOEXServiceServer struct {
-	moex_contract_v1.UnimplementedMoexServer
+	moex_contract_v1.UnimplementedDealingServer
 	zl zlog.ZLogger
 }
 
 func RegisterMOEXServer(srv *grpc.Server, service *MOEXServiceServer) {
-	moex_contract_v1.RegisterMoexServer(srv, service)
+	moex_contract_v1.RegisterDealingServer(srv, service)
 }
 
 // Init nats

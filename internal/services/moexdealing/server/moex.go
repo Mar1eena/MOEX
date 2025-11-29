@@ -3,115 +3,59 @@ package server
 import (
 	"fmt"
 	"net"
-	"strings"
+	"time"
 
 	moex_contract_v1 "github.com/Mar1eena/trb_proto/gen/go/moex"
 )
 
-func Request(req *moex_contract_v1.Req) (string, error) {
-	addr := "91.208.232.200:9229"
+func Dealing(req *moex_contract_v1.DealingRequest) (string, error) {
 
-	msg, err := message(req, "A", body(req.Body))
+	addr := req.Address
+	logon := msgBuild(req.Header, req.Logon, "A")
+	// instrument := msgBuild(req.Header, "AE")
 
-	if err != nil {
-		return err.Error(), err
-	}
-
-	// соединение
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		fmt.Printf("Не удалось подключиться: %v\n", err)
-		return err.Error(), err
+		return "", err
 	}
 	defer conn.Close()
-	buffer := make([]byte, 1024)
+
+	buffer := make([]byte, 4096)
+	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+
+	// Отправляем запрос логина и читаем ответ
+	if _, err := conn.Write([]byte(logon)); err != nil {
+		return "", err
+	}
+
+	// Читаем ответ
 	n, err := conn.Read(buffer)
-	if err != nil {
-		fmt.Printf("Не удалось прочитать ответ: %v\n", err)
-		return err.Error(), err
-	}
+	resp := string(buffer[:n])
 
-	// логинимся
-	conn.Write([]byte(msg))
-	fmt.Println("Сообщение отправлено")
-
-	fmt.Printf("Ответ: %s\n", string(buffer[:n]))
-
-	// получаем инструменты
-	msg, err = message(req, "AE", instrument(req.Body))
-	conn.Write([]byte(msg))
-	if err != nil {
-		fmt.Printf("Не удалось прочитать ответ: %v\n", err)
-		return err.Error(), err
-	}
-	return string(buffer[:n]), nil
+	return resp, err
 }
 
-func message(req *moex_contract_v1.Req, msgtype string, body string) (string, error) {
-	mes := "35=" + msgtype + "\x01" +
-		req.Header.MsgSeqNum + "\x01" +
-		req.Header.SendercompID + "\x01" +
-		req.Header.TargetcompID + "\x01" +
-		req.Header.SendingTime + "\x01" +
-		body
-	bodyLength := len(mes)
+func msgBuild(header string, body string, msgtype string) string {
+	// Добавляем тип сообщения и соединяем заголовок с телом, чтобы вычислить длину
+	msges := "35=" + msgtype + "\x01" + header + "\x01" + body + "\x01"
 
-	header := req.Header.BeginString + "\x01" +
+	// Длина сообщения без первых двух полей BeginString и BodyLength
+	bodyLength := len(msges)
+
+	// Формируем заголовок без трейлера
+	head := "8=FIX.4.4" + "\x01" +
 		fmt.Sprintf("9=%03d\x01", bodyLength)
+	messageWithoutTrailer := head + msges
 
-	messageWithoutTrailer := header + mes
-
+	// считаем контрольную сумму
 	checkSum := 0
 	for _, b := range messageWithoutTrailer {
 		checkSum += int(b)
 	}
 	checkSum %= 256
 
+	// Формируем конечное сообщение с заголовком, телом и трейлером
 	message := messageWithoutTrailer + fmt.Sprintf("10=%03d\x01", checkSum)
 
-	return message, nil
-}
-
-func body(req *moex_contract_v1.Body) string {
-	if req == nil {
-		return ""
-	}
-
-	var parts []string
-
-	// Обработка Logon
-	if req.Logon != nil {
-		logon := req.Logon
-		if logon.EncryptMethod != "" {
-			parts = append(parts, logon.EncryptMethod)
-		}
-		if logon.Heartbtint != "" {
-			parts = append(parts, logon.Heartbtint)
-		}
-		if logon.Password != "" {
-			parts = append(parts, logon.Password)
-		}
-		if logon.ResetSeqNumFlag != "" {
-			parts = append(parts, logon.ResetSeqNumFlag)
-		}
-		if logon.TestReqID != "" {
-			parts = append(parts, logon.TestReqID)
-		}
-	}
-
-	if len(parts) == 0 {
-		return ""
-	}
-
-	return strings.Join(parts, "\x01") + "\x01"
-}
-
-func instrument(req *moex_contract_v1.Body) string {
-	for _, v := range req.Instrument {
-		return v.Symbol + "\x01" +
-			v.Product + "\x01" +
-			v.SecurityType + "\x01"
-	}
-
-	return ""
+	return message
 }
