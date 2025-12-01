@@ -16,12 +16,12 @@ func Dealing(req *moex_contract_v1.DealingRequest) (*moex_contract_v1.DealingRes
 	dialer := &net.Dialer{}
 	conn, err := dialer.Dial("tcp", req.Address)
 	if err != nil {
-		return &moex_contract_v1.DealingResponse{Response: "Не удалось установить соединение"}, err
+		return nil, fmt.Errorf("connection failed: %w", err)
 	}
 	defer conn.Close()
 
 	if _, err := conn.Write([]byte(logon)); err != nil {
-		return &moex_contract_v1.DealingResponse{Response: "Не удалось отправить логин"}, err
+		return nil, fmt.Errorf("failed to send login: %w", err)
 	}
 
 	instrumentBuffer := make([]byte, 1600000)
@@ -30,9 +30,11 @@ func Dealing(req *moex_contract_v1.DealingRequest) (*moex_contract_v1.DealingRes
 		response := string(instrumentBuffer[:d])
 		switch {
 		case strings.Contains(response, "35=AE"):
-			return &moex_contract_v1.DealingResponse{Response: response}, nil
+			// return &moex_contract_v1.DealingResponse{Response: response}, nil
+		case strings.Contains(response, "35=5"):
+			return nil, err
 		case err != nil:
-			return &moex_contract_v1.DealingResponse{Response: response}, err
+			return nil, err
 		}
 	}
 
