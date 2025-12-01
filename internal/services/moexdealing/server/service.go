@@ -11,6 +11,5 @@ func (s *MOEXServiceServer) Request(ctx context.Context, req *moex_contract_v1.R
 }
 
 func (s *MOEXServiceServer) Dealing(ctx context.Context, req *moex_contract_v1.DealingRequest) (*moex_contract_v1.DealingResponse, error) {
-	resp, err := Dealing(req)
-	return &moex_contract_v1.DealingResponse{Reply: resp}, err
+	return Dealing(req)
 }

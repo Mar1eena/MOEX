@@ -8,31 +8,49 @@ import (
 	moex_contract_v1 "github.com/Mar1eena/trb_proto/gen/go/moex"
 )
 
-func Dealing(req *moex_contract_v1.DealingRequest) (string, error) {
-
+func Dealing(req *moex_contract_v1.DealingRequest) (*moex_contract_v1.DealingResponse, error) {
 	addr := req.Address
 	logon := msgBuild(req.Header, req.Logon, "A")
-	// instrument := msgBuild(req.Header, "AE")
+	instrument := msgBuild(req.Header, req.Instrument, "AE")
 
-	conn, err := net.Dial("tcp", addr)
+	// Устанавливаем соединение с таймаутом
+	dialer := &net.Dialer{Timeout: 30 * time.Second}
+	conn, err := dialer.Dial("tcp", addr)
 	if err != nil {
-		return "", err
+		return &moex_contract_v1.DealingResponse{Logon: "58=Не удалось установить соединение"}, nil
 	}
 	defer conn.Close()
 
-	buffer := make([]byte, 4096)
-	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+	// Устанавливаем дедлайны для операций чтения/записи
+	conn.SetDeadline(time.Now().Add(30 * time.Second))
 
-	// Отправляем запрос логина и читаем ответ
+	// 1. Отправляем запрос логина
 	if _, err := conn.Write([]byte(logon)); err != nil {
-		return "", err
+		return &moex_contract_v1.DealingResponse{Logon: "58=Не удалось отправить логин"}, nil
 	}
 
-	// Читаем ответ
-	n, err := conn.Read(buffer)
-	resp := string(buffer[:n])
+	// 2. Читаем ответ на логин
+	logonBuffer := make([]byte, 4096)
+	n, err := conn.Read(logonBuffer)
+	respLogon := string(logonBuffer[:n])
+	if err != nil {
+		return &moex_contract_v1.DealingResponse{Logon: fmt.Sprintf("58=Не удалось  получить логин: %v, error: %v", logon, err)}, nil
+	}
 
-	return resp, err
+	// 3. Отправляем запрос инструмента
+	if _, err := conn.Write([]byte(instrument)); err != nil {
+		return &moex_contract_v1.DealingResponse{Logon: respLogon, Instrument: "58=Не удалось отправить инструмент"}, nil
+	}
+
+	// 4. Читаем ответ на инструмент
+	instrumentBuffer := make([]byte, 4096)
+	n, err = conn.Read(instrumentBuffer)
+	respInstrument := string(instrumentBuffer[:n])
+	if err != nil {
+		return &moex_contract_v1.DealingResponse{Logon: respLogon, Instrument: fmt.Sprintf("58=Не удалось  получить инструмент: %v", err)}, nil
+	}
+
+	return &moex_contract_v1.DealingResponse{Logon: respLogon, Instrument: respInstrument}, nil
 }
 
 func msgBuild(header string, body string, msgtype string) string {

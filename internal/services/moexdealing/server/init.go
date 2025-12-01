@@ -6,7 +6,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Init service
 type MOEXServiceServer struct {
 	moex_contract_v1.UnimplementedDealingServer
 	zl zlog.ZLogger
