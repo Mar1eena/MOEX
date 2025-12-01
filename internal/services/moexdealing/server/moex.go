@@ -30,7 +30,7 @@ func Dealing(req *moex_contract_v1.DealingRequest) (*moex_contract_v1.DealingRes
 		response := string(instrumentBuffer[:d])
 		switch {
 		case strings.Contains(response, "35=AE"):
-			// return &moex_contract_v1.DealingResponse{Response: response}, nil
+			return &moex_contract_v1.DealingResponse{Response: response}, nil
 		case strings.Contains(response, "35=5"):
 			return nil, err
 		case err != nil:
