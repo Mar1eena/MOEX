@@ -3,65 +3,54 @@ package server
 import (
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	moex_contract_v1 "github.com/Mar1eena/trb_proto/gen/go/moex"
 )
 
 func Dealing(req *moex_contract_v1.DealingRequest) (*moex_contract_v1.DealingResponse, error) {
-	addr := req.Address
-	logon := msgBuild(req.Header, req.Logon, "A")
-	instrument := msgBuild(req.Header, req.Instrument, "AE")
 
-	// Устанавливаем соединение с таймаутом
-	dialer := &net.Dialer{Timeout: 30 * time.Second}
-	conn, err := dialer.Dial("tcp", addr)
+	logon := msgBuild(req.Header, req.Logon)
+
+	dialer := &net.Dialer{}
+	conn, err := dialer.Dial("tcp", req.Address)
 	if err != nil {
-		return &moex_contract_v1.DealingResponse{Logon: "58=Не удалось установить соединение"}, nil
+		return &moex_contract_v1.DealingResponse{Response: "Не удалось установить соединение"}, err
 	}
 	defer conn.Close()
 
-	// Устанавливаем дедлайны для операций чтения/записи
-	conn.SetDeadline(time.Now().Add(30 * time.Second))
-
-	// 1. Отправляем запрос логина
 	if _, err := conn.Write([]byte(logon)); err != nil {
-		return &moex_contract_v1.DealingResponse{Logon: "58=Не удалось отправить логин"}, nil
+		return &moex_contract_v1.DealingResponse{Response: "Не удалось отправить логин"}, err
 	}
 
-	// 2. Читаем ответ на логин
-	logonBuffer := make([]byte, 4096)
-	n, err := conn.Read(logonBuffer)
-	respLogon := string(logonBuffer[:n])
-	if err != nil {
-		return &moex_contract_v1.DealingResponse{Logon: fmt.Sprintf("58=Не удалось  получить логин: %v, error: %v", logon, err)}, nil
+	instrumentBuffer := make([]byte, 1600000)
+	for {
+		d, err := conn.Read(instrumentBuffer)
+		response := string(instrumentBuffer[:d])
+		switch {
+		case strings.Contains(response, "35=AE"):
+			return &moex_contract_v1.DealingResponse{Response: response}, nil
+		case err != nil:
+			return &moex_contract_v1.DealingResponse{Response: response}, err
+		}
 	}
 
-	// 3. Отправляем запрос инструмента
-	if _, err := conn.Write([]byte(instrument)); err != nil {
-		return &moex_contract_v1.DealingResponse{Logon: respLogon, Instrument: "58=Не удалось отправить инструмент"}, nil
-	}
-
-	// 4. Читаем ответ на инструмент
-	instrumentBuffer := make([]byte, 4096)
-	n, err = conn.Read(instrumentBuffer)
-	respInstrument := string(instrumentBuffer[:n])
-	if err != nil {
-		return &moex_contract_v1.DealingResponse{Logon: respLogon, Instrument: fmt.Sprintf("58=Не удалось  получить инструмент: %v", err)}, nil
-	}
-
-	return &moex_contract_v1.DealingResponse{Logon: respLogon, Instrument: respInstrument}, nil
 }
 
-func msgBuild(header string, body string, msgtype string) string {
+func msgBuild(header string, body string) string {
+	loc := time.FixedZone("UTC-0", 0)
+
+	// Получаем текущее время в этой локации
+	now := time.Now().In(loc)
 	// Добавляем тип сообщения и соединяем заголовок с телом, чтобы вычислить длину
-	msges := "35=" + msgtype + "\x01" + header + "\x01" + body + "\x01"
+	msges := header + "\x01" + "52=" + now.Format("00000000-00:00:00.000") + "\x01" + body + "\x01"
 
 	// Длина сообщения без первых двух полей BeginString и BodyLength
 	bodyLength := len(msges)
 
 	// Формируем заголовок без трейлера
-	head := "8=FIX.4.4" + "\x01" +
+	head := "8=FIXT.1.1" + "\x01" +
 		fmt.Sprintf("9=%03d\x01", bodyLength)
 	messageWithoutTrailer := head + msges
 

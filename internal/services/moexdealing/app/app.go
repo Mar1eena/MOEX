@@ -16,24 +16,20 @@ func App() {
 
 	zl := zlog.New()
 
-	// grpc server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "50051"
 	}
 	gs := grpc.NewServer()
 
-	// listener
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		zl.Fatal("failed to listen", err)
 	}
 	zl.Info("server listening at %v", lis.Addr().String())
 
-	// service
 	service := server.Service(zl)
 
-	// register service
 	server.RegisterMOEXServer(gs, service)
 
 	go func() {
@@ -47,6 +43,5 @@ func App() {
 		}
 	}()
 
-	// Wait for signal
 	<-ctx.Done()
 }
