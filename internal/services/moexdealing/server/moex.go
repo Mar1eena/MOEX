@@ -2,9 +2,9 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"strings"
-	"time"
 
 	moex_contract_v1 "github.com/Mar1eena/trb_proto/gen/go/moex"
 )
@@ -24,29 +24,30 @@ func Dealing(req *moex_contract_v1.DealingRequest) (*moex_contract_v1.DealingRes
 		return nil, fmt.Errorf("failed to send login: %w", err)
 	}
 
-	instrumentBuffer := make([]byte, 1600000)
+	var fullResponse strings.Builder
+	buffer := make([]byte, 16384)
+
 	for {
-		d, err := conn.Read(instrumentBuffer)
-		response := string(instrumentBuffer[:d])
-		switch {
-		case strings.Contains(response, "35=AE"):
-			return &moex_contract_v1.DealingResponse{Response: response}, nil
-		case strings.Contains(response, "35=5"):
-			return nil, err
-		case err != nil:
-			return nil, err
+		n, err := conn.Read(buffer)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				break
+			}
+			return nil, fmt.Errorf("failed: %w, response: %s", err, string(buffer[:n]))
+		}
+
+		if n > 0 {
+			fullResponse.Write(buffer[:n])
 		}
 	}
-
+	return &moex_contract_v1.DealingResponse{Response: fullResponse.String()}, nil
 }
 
 func msgBuild(header string, body string) string {
-	loc := time.FixedZone("UTC-0", 0)
-
-	// Получаем текущее время в этой локации
-	now := time.Now().In(loc)
-	// Добавляем тип сообщения и соединяем заголовок с телом, чтобы вычислить длину
-	msges := header + "\x01" + "52=" + now.Format("00000000-00:00:00.000") + "\x01" + body + "\x01"
+	msges := header + "\x01" + body + "\x01"
 
 	// Длина сообщения без первых двух полей BeginString и BodyLength
 	bodyLength := len(msges)
