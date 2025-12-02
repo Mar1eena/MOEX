@@ -47,7 +47,7 @@ func Dealing(req *moex_contract_v1.DealingRequest) (*moex_contract_v1.DealingRes
 }
 
 func msgBuild(header string, body string) string {
-	msges := header + "\x01" + body + "\x01"
+	msges := "35=A" + "\x01" + "34=1" + "\x01" + header + "\x01" + body + "\x01" + "141=Y" + "\x01" + "1137=9" + "\x01"
 
 	// Длина сообщения без первых двух полей BeginString и BodyLength
 	bodyLength := len(msges)
