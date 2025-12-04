@@ -17,7 +17,7 @@ RUN mkdir -p /etc/envoy/protos
 
 # Скачивание дескриптора для gRPC<->REST
 RUN curl -sSL \
-    "https://github.com/Mar1eena/TrB_proto/raw/refs/tags/v0.7.1/gen/desc/trb_protos.pb" \
+    "https://github.com/Mar1eena/TrB_proto/raw/refs/tags/v0.7.2/gen/desc/trb_protos.pb" \
     -o /etc/envoy/protos/trb_protos.pb
 CMD ["/usr/local/bin/envoy", "-c", "/etc/envoy/envoy.yaml"]
 
